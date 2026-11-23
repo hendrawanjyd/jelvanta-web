@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  --bg-deep-ocean: #0B2528;
+  --text-ivory: #F5F3ED;
+  --accent-gold: #C6A878;
+  --accent-sage: #537C78;
+}
+
+body {
+  background-color: var(--bg-deep-ocean);
+  color: var(--text-ivory);
+  font-family: var(--font-jakarta), sans-serif;
+  overflow-x: hidden;
+}
+
+.font-logo {
+  font-family: var(--font-tenor), sans-serif;
+}
+
+.font-editorial,
+.font-playfair {
+  font-family: var(--font-editorial), serif;
+}
+
+.font-script {
+  font-family: var(--font-script), cursive;
+}
+
+.font-jakarta {
+  font-family: var(--font-jakarta), sans-serif;
+}
