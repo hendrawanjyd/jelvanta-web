@@ -25,6 +25,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+// Ngetes untuk memahami cara memakai github
+
 const TUMPUKAN_FOTO_VISI = [
   {
     id: "visi-1",
