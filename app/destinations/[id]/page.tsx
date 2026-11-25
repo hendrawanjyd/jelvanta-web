@@ -6,13 +6,12 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import {
-  DESTINASI_BAWAAN,
-  Destinasi,
-  Pesanan,
+  Destination,
+  createBooking,
   formatRupiah,
-  supabase,
-  isSupabaseConfigured,
-} from "@/lib/supabase";
+  getDestinationBySlug,
+  getStoredUser,
+} from "@/lib/api";
 import {
   MapPin,
   Clock,
@@ -22,14 +21,18 @@ import {
   ArrowLeft,
   CreditCard,
   ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
 
 function KontenDetailDestinasi() {
   const params = useParams();
   const router = useRouter();
-  const idDestinasi = params?.id as string;
+  const slugDestinasi = params?.id as string;
 
-  const [destinasi, setDestinasi] = useState<Destinasi | null>(null);
+  const [destinasi, setDestinasi] = useState<Destination | null>(null);
+  const [sedangMemuat, setSedangMemuat] = useState(true);
+  const [errorMuat, setErrorMuat] = useState<string | null>(null);
+
   const [namaPemesan, setNamaPemesan] = useState("");
   const [email, setEmail] = useState("");
   const [telepon, setTelepon] = useState("");
@@ -40,33 +43,55 @@ function KontenDetailDestinasi() {
   );
   const [catatan, setCatatan] = useState("");
   const [sedangMemproses, setSedangMemproses] = useState(false);
+  const [errorForm, setErrorForm] = useState<string | null>(null);
+
+  const tanggalHariIni = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
+    const userTersimpan = getStoredUser();
+    if (userTersimpan) {
+      setNamaPemesan(userTersimpan.name || "");
+      setEmail(userTersimpan.email || "");
+      setTelepon(userTersimpan.telepon || "");
+    }
+  }, []);
+
+  useEffect(() => {
+    let aktif = true;
+
     async function cariDestinasi() {
-      if (isSupabaseConfigured && supabase) {
-        const { data } = await supabase
-          .from("destinations")
-          .select("*")
-          .eq("id", idDestinasi)
-          .single();
-        if (data) {
+      if (!slugDestinasi) return;
+
+      try {
+        setSedangMemuat(true);
+        setErrorMuat(null);
+        const data = await getDestinationBySlug(slugDestinasi);
+        if (aktif) {
           setDestinasi(data);
-          return;
+        }
+      } catch (err) {
+        if (aktif) {
+          setErrorMuat(
+            err instanceof Error
+              ? err.message
+              : "Destinasi tidak ditemukan atau gagal dimuat"
+          );
+        }
+      } finally {
+        if (aktif) {
+          setSedangMemuat(false);
         }
       }
-
-      const simpananLokal = localStorage.getItem("jelvanta_destinasi_v2");
-      const daftar: Destinasi[] = simpananLokal
-        ? JSON.parse(simpananLokal)
-        : DESTINASI_BAWAAN;
-      const ditemukan =
-        daftar.find((item) => item.id === idDestinasi) || DESTINASI_BAWAAN[0];
-      setDestinasi(ditemukan);
     }
-    cariDestinasi();
-  }, [idDestinasi]);
 
-  if (!destinasi) {
+    cariDestinasi();
+
+    return () => {
+      aktif = false;
+    };
+  }, [slugDestinasi]);
+
+  if (sedangMemuat) {
     return (
       <div className="min-h-screen bg-[#0B2528] text-[#F5F3ED] flex items-center justify-center">
         <p className="text-sm tracking-widest uppercase text-[#C6A878]">
@@ -76,45 +101,61 @@ function KontenDetailDestinasi() {
     );
   }
 
+  if (errorMuat || !destinasi) {
+    return (
+      <div className="min-h-screen bg-[#0B2528] text-[#F5F3ED] flex flex-col items-center justify-center px-6 text-center space-y-5">
+        <AlertCircle className="w-10 h-10 text-[#C6A878]" />
+        <div className="space-y-2 max-w-md">
+          <h1 className="font-editorial text-3xl font-normal">
+            Destinasi Tidak Tersedia
+          </h1>
+          <p className="text-sm text-[#F5F3ED]/70">
+            {errorMuat || "Paket perjalanan yang Anda cari tidak ditemukan."}
+          </p>
+        </div>
+        <Link
+          href="/#paket"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#C6A878] text-[#0B2528] text-xs font-bold uppercase tracking-wider hover:bg-[#F5F3ED] transition-all"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Kembali ke Koleksi Ekspedisi
+        </Link>
+      </div>
+    );
+  }
+
+  const kuotaHabis = destinasi.kuota <= 0;
   const totalHarga = destinasi.harga * jumlahPeserta;
 
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (kuotaHabis) return;
+
     setSedangMemproses(true);
+    setErrorForm(null);
 
-    const angkaAcak = Math.floor(10000 + Math.random() * 90000);
-    const kodeBookingBaru = `JLV-${angkaAcak}`;
+    try {
+      const response = await createBooking({
+        destinasi_id: destinasi.id,
+        nama_pemesan: namaPemesan.trim(),
+        email: email.trim(),
+        telepon: telepon.trim(),
+        tanggal_berangkat: tanggalBerangkat,
+        jumlah_peserta: jumlahPeserta,
+        metode_pembayaran: metodePembayaran,
+        catatan: catatan.trim() || undefined,
+      });
 
-    const pesananBaru: Pesanan = {
-      id: crypto.randomUUID(),
-      kode_booking: kodeBookingBaru,
-      destinasi_id: destinasi.id,
-      nama_destinasi: destinasi.nama,
-      nama_pemesan: namaPemesan,
-      email,
-      telepon,
-      tanggal_berangkat: tanggalBerangkat,
-      jumlah_peserta: jumlahPeserta,
-      total_harga: totalHarga,
-      metode_pembayaran: metodePembayaran,
-      status: "Menunggu Pembayaran",
-      catatan,
-      created_at: new Date().toISOString(),
-    };
-
-    if (isSupabaseConfigured && supabase) {
-      await supabase.from("bookings").insert([pesananBaru]);
+      const kodeBookingBaru = response.data.kode_booking;
+      router.push(`/booking?kode=${encodeURIComponent(kodeBookingBaru)}`);
+    } catch (err) {
+      setErrorForm(
+        err instanceof Error
+          ? err.message
+          : "Gagal memproses reservasi, silakan coba lagi"
+      );
+      setSedangMemproses(false);
     }
-
-    const riwayatLokal = localStorage.getItem("jelvanta_pesanan");
-    const daftarPesanan: Pesanan[] = riwayatLokal
-      ? JSON.parse(riwayatLokal)
-      : [];
-    daftarPesanan.unshift(pesananBaru);
-    localStorage.setItem("jelvanta_pesanan", JSON.stringify(daftarPesanan));
-
-    setSedangMemproses(false);
-    router.push(`/booking?kode=${kodeBookingBaru}`);
   };
 
   return (
@@ -178,7 +219,7 @@ function KontenDetailDestinasi() {
                   Kapasitas Maksimal
                 </p>
                 <p className="text-sm font-semibold">
-                  Sisa {destinasi.kuota} Kursi
+                  {kuotaHabis ? "Kuota Penuh" : `Sisa ${destinasi.kuota} Kursi`}
                 </p>
               </div>
             </div>
@@ -253,6 +294,13 @@ function KontenDetailDestinasi() {
               </div>
             </div>
 
+            {errorForm && (
+              <div className="p-3.5 rounded-xl bg-red-500/15 border border-red-400/40 text-xs text-red-200 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-300" />
+                <span>{errorForm}</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmitBooking} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-[#F5F3ED]/80 mb-1.5">
@@ -304,6 +352,7 @@ function KontenDetailDestinasi() {
                   <input
                     type="date"
                     required
+                    min={tanggalHariIni}
                     value={tanggalBerangkat}
                     onChange={(e) => setTanggalBerangkat(e.target.value)}
                     className="w-full px-3 py-3 rounded-xl bg-[#0B2528] border border-[#537C78]/50 text-xs text-[#F5F3ED] focus:outline-none focus:border-[#C6A878]"
@@ -317,13 +366,16 @@ function KontenDetailDestinasi() {
                   <input
                     type="number"
                     min={1}
-                    max={destinasi.kuota}
+                    max={Math.max(1, destinasi.kuota)}
+                    disabled={kuotaHabis}
                     required
                     value={jumlahPeserta}
-                    onChange={(e) =>
-                      setJumlahPeserta(Math.max(1, Number(e.target.value)))
-                    }
-                    className="w-full px-4 py-3 rounded-xl bg-[#0B2528] border border-[#537C78]/50 text-sm text-[#F5F3ED] focus:outline-none focus:border-[#C6A878]"
+                    onChange={(e) => {
+                      const nilai = Number(e.target.value);
+                      const batas = Math.max(1, destinasi.kuota);
+                      setJumlahPeserta(Math.min(batas, Math.max(1, nilai)));
+                    }}
+                    className="w-full px-4 py-3 rounded-xl bg-[#0B2528] border border-[#537C78]/50 text-sm text-[#F5F3ED] focus:outline-none focus:border-[#C6A878] disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -383,13 +435,15 @@ function KontenDetailDestinasi() {
 
               <button
                 type="submit"
-                disabled={sedangMemproses}
-                className="w-full py-4 rounded-full bg-[#C6A878] text-[#0B2528] text-xs font-bold uppercase tracking-widest hover:bg-[#F5F3ED] transition-all flex items-center justify-center gap-2"
+                disabled={sedangMemproses || kuotaHabis}
+                className="w-full py-4 rounded-full bg-[#C6A878] text-[#0B2528] text-xs font-bold uppercase tracking-widest hover:bg-[#F5F3ED] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CreditCard className="w-4 h-4" />
-                {sedangMemproses
-                  ? "Memproses Reservasi..."
-                  : "Konfirmasi Reservasi Sekarang"}
+                {kuotaHabis
+                  ? "Kuota Penuh"
+                  : sedangMemproses
+                    ? "Memproses Reservasi..."
+                    : "Konfirmasi Reservasi Sekarang"}
               </button>
 
               <p className="text-[11px] text-center text-[#F5F3ED]/50 flex items-center justify-center gap-1.5">

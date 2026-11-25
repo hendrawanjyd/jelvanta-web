@@ -26,10 +26,26 @@ export default function Footer() {
             </li>
             <li>
               <Link
-                href="/#destinasi"
+                href="/destinations"
                 className="hover:text-[#C6A878] transition-colors"
               >
                 Koleksi Destinasi
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/tentang"
+                className="hover:text-[#C6A878] transition-colors"
+              >
+                Tentang Kami
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/kontak"
+                className="hover:text-[#C6A878] transition-colors"
+              >
+                Hubungi Concierge
               </Link>
             </li>
             <li>
@@ -42,10 +58,10 @@ export default function Footer() {
             </li>
             <li>
               <Link
-                href="/admin"
+                href="/akun"
                 className="hover:text-[#C6A878] transition-colors"
               >
-                Panel Pengelola
+                Akun Pelanggan
               </Link>
             </li>
           </ul>

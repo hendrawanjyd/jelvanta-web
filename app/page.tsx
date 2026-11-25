@@ -5,13 +5,7 @@ import Link from "next/link";
 import gsap from "gsap";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import {
-  DESTINASI_BAWAAN,
-  Destinasi,
-  formatRupiah,
-  supabase,
-  isSupabaseConfigured,
-} from "@/lib/supabase";
+import { Destination, formatRupiah, getDestinations } from "@/lib/api";
 import {
   ArrowUpRight,
   Clock,
@@ -19,10 +13,10 @@ import {
   Compass,
   Shield,
   Calendar,
-  Phone,
   Mail,
   ChevronLeft,
   ChevronRight,
+  Ticket,
 } from "lucide-react";
 
 const TUMPUKAN_FOTO_VISI = [
@@ -50,11 +44,12 @@ export default function HomePage() {
   const heroBoxRef = useRef<HTMLDivElement>(null);
 
   const [urutanFoto, setUrutanFoto] = useState([0, 1, 2]);
-  const [daftarDestinasi, setDaftarDestinasi] =
-    useState<Destinasi[]>(DESTINASI_BAWAAN);
-  const [slidePerDestinasi, setSlidePerDestinasi] = useState<{
-    [key: string]: number;
-  }>({});
+  const [daftarDestinasi, setDaftarDestinasi] = useState<Destination[]>([]);
+  const [sedangMemuat, setSedangMemuat] = useState(true);
+  const [pesanError, setPesanError] = useState<string | null>(null);
+  const [slidePerDestinasi, setSlidePerDestinasi] = useState<
+    Record<number, number>
+  >({});
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -68,29 +63,36 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    let aktif = true;
+
     async function muatDestinasi() {
-      if (isSupabaseConfigured && supabase) {
-        const { data, error } = await supabase
-          .from("destinations")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (!error && data && data.length > 0) {
+      try {
+        setSedangMemuat(true);
+        setPesanError(null);
+        const data = await getDestinations();
+        if (aktif) {
           setDaftarDestinasi(data);
-          return;
+        }
+      } catch (err) {
+        if (aktif) {
+          setPesanError(
+            err instanceof Error
+              ? err.message
+              : "Gagal memuat daftar destinasi dari server"
+          );
+        }
+      } finally {
+        if (aktif) {
+          setSedangMemuat(false);
         }
       }
-
-      const simpananLokal = localStorage.getItem("jelvanta_destinasi_v2");
-      if (simpananLokal) {
-        setDaftarDestinasi(JSON.parse(simpananLokal));
-      } else {
-        localStorage.setItem(
-          "jelvanta_destinasi_v2",
-          JSON.stringify(DESTINASI_BAWAAN)
-        );
-      }
     }
+
     muatDestinasi();
+
+    return () => {
+      aktif = false;
+    };
   }, []);
 
   const tukarTumpukanFoto = () => {
@@ -98,7 +100,7 @@ export default function HomePage() {
   };
 
   const geserFotoDestinasi = (
-    idDestinasi: string,
+    idDestinasi: number,
     arah: "kiri" | "kanan",
     totalFoto: number
   ) => {
@@ -112,12 +114,14 @@ export default function HomePage() {
     });
   };
 
-  const pilihTitikFoto = (idDestinasi: string, indexTarget: number) => {
+  const pilihTitikFoto = (idDestinasi: number, indexTarget: number) => {
     setSlidePerDestinasi((prev) => ({
       ...prev,
       [idDestinasi]: indexTarget,
     }));
   };
+
+  const destinasiUnggulan = daftarDestinasi.slice(0, 3);
 
   return (
     <div className="min-h-screen bg-[#0B2528] text-[#F5F3ED]">
@@ -230,166 +234,209 @@ export default function HomePage() {
           className="bg-[#EFECE4] text-[#1E2623] py-24 md:py-32 border-t border-[#0B2528]/10"
         >
           <div className="max-w-7xl mx-auto px-6 md:px-16">
-            <div className="mb-16 space-y-2">
-              <p className="font-script text-2xl sm:text-[28px] text-[#537C78]">
-                Kurasi perjalanan terbaik
-              </p>
-              <h2 className="font-editorial text-3xl sm:text-5xl font-normal text-[#0B2528]">
-                Koleksi Ekspedisi Nusantara
-              </h2>
+            <div className="mb-16 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+              <div className="space-y-2">
+                <p className="font-script text-2xl sm:text-[28px] text-[#537C78]">
+                  Kurasi perjalanan terbaik
+                </p>
+                <h2 className="font-editorial text-3xl sm:text-5xl font-normal text-[#0B2528]">
+                  Koleksi Ekspedisi Nusantara
+                </h2>
+              </div>
+
+              <Link
+                href="/destinations"
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#0B2528] hover:text-[#537C78] transition-colors"
+              >
+                <span>Lihat Semua ({daftarDestinasi.length})</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </Link>
             </div>
 
-            <div className="space-y-24">
-              {daftarDestinasi.map((item, index) => {
-                const barisGenap = index % 2 === 1;
-                const daftarFoto =
-                  item.galeri && item.galeri.length > 0
-                    ? item.galeri
-                    : [item.gambar];
-                const indexAktif =
-                  (slidePerDestinasi[item.id] || 0) % daftarFoto.length;
+            {sedangMemuat ? (
+              <div className="py-16 text-center text-sm text-[#2B2B28]/65">
+                Memuat koleksi ekspedisi Nusantara...
+              </div>
+            ) : pesanError ? (
+              <div className="p-8 rounded-2xl bg-[#F5F3ED] border border-red-300 text-center space-y-2">
+                <p className="text-sm font-semibold text-red-700">
+                  Tidak dapat terhubung ke server destinasi
+                </p>
+                <p className="text-xs text-[#2B2B28]/70">{pesanError}</p>
+              </div>
+            ) : destinasiUnggulan.length === 0 ? (
+              <div className="py-16 text-center text-sm text-[#2B2B28]/65">
+                Belum ada paket ekspedisi yang tersedia saat ini.
+              </div>
+            ) : (
+              <>
+                <div className="space-y-24">
+                  {destinasiUnggulan.map((item, index) => {
+                    const barisGenap = index % 2 === 1;
+                    const daftarFoto =
+                      item.galeri && item.galeri.length > 0
+                        ? item.galeri
+                        : [item.gambar];
+                    const indexAktif =
+                      (slidePerDestinasi[item.id] || 0) % daftarFoto.length;
 
-                return (
-                  <div
-                    key={item.id}
-                    className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center"
-                  >
-                    <div
-                      className={`lg:col-span-7 overflow-hidden ${
-                        barisGenap ? "lg:order-2" : "lg:order-1"
-                      }`}
-                    >
-                      <div className="relative h-[340px] sm:h-[450px] w-full overflow-hidden group shadow-lg">
-                        {daftarFoto.map((fotoUrl, i) => (
-                          <img
-                            key={i}
-                            src={fotoUrl}
-                            alt={`${item.nama} ${i + 1}`}
-                            className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out ${
-                              i === indexAktif
-                                ? "opacity-100 scale-100 z-10"
-                                : "opacity-0 scale-105 z-0 pointer-events-none"
-                            }`}
-                          />
-                        ))}
-
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/15 z-20 pointer-events-none" />
-
-                        <div className="absolute top-5 left-5 z-30 px-4 py-1.5 rounded-full bg-[#F5F3ED]/95 text-[#0B2528] text-[11px] font-semibold uppercase tracking-widest shadow-sm">
-                          {item.kategori}
-                        </div>
-
-                        {daftarFoto.length > 1 && (
-                          <>
-                            <div className="absolute bottom-5 left-5 z-30 flex items-center gap-2">
-                              {daftarFoto.map((_, dotIdx) => (
-                                <button
-                                  key={dotIdx}
-                                  type="button"
-                                  onClick={() =>
-                                    pilihTitikFoto(item.id, dotIdx)
-                                  }
-                                  aria-label={`Pilih foto ${dotIdx + 1}`}
-                                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                                    dotIdx === indexAktif
-                                      ? "w-7 bg-[#F5F3ED]"
-                                      : "w-2 bg-[#F5F3ED]/45 hover:bg-[#F5F3ED]/80"
-                                  }`}
-                                />
-                              ))}
-                            </div>
-
-                            <div className="absolute bottom-4 right-5 z-30 flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  geserFotoDestinasi(
-                                    item.id,
-                                    "kiri",
-                                    daftarFoto.length
-                                  )
-                                }
-                                aria-label="Foto sebelumnya"
-                                className="w-10 h-10 rounded-full bg-[#0B2528]/75 backdrop-blur-md border border-[#F5F3ED]/25 text-[#F5F3ED] flex items-center justify-center hover:bg-[#C6A878] hover:text-[#0B2528] hover:border-[#C6A878] transition-all duration-300"
-                              >
-                                <ChevronLeft className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  geserFotoDestinasi(
-                                    item.id,
-                                    "kanan",
-                                    daftarFoto.length
-                                  )
-                                }
-                                aria-label="Foto selanjutnya"
-                                className="w-10 h-10 rounded-full bg-[#0B2528]/75 backdrop-blur-md border border-[#F5F3ED]/25 text-[#F5F3ED] flex items-center justify-center hover:bg-[#C6A878] hover:text-[#0B2528] hover:border-[#C6A878] transition-all duration-300"
-                              >
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div
-                      className={`lg:col-span-5 space-y-6 ${
-                        barisGenap ? "lg:order-1" : "lg:order-2"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-[#537C78] font-semibold">
-                        <span>0{index + 1}</span>
-                        <span>{item.lokasi}</span>
-                      </div>
-
-                      <h3 className="font-editorial text-2xl sm:text-4xl font-normal text-[#0B2528] leading-snug">
-                        {item.nama}
-                      </h3>
-
-                      <p className="text-sm text-[#2B2B28]/75 leading-relaxed">
-                        {item.deskripsi}
-                      </p>
-
-                      <div className="flex items-center gap-6 pt-2 text-xs text-[#0B2528]/75">
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="w-4 h-4 text-[#537C78]" />
-                          {item.durasi}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Users className="w-4 h-4 text-[#537C78]" />
-                          Sisa {item.kuota} Kursi
-                        </span>
-                      </div>
-
-                      <div className="pt-5 border-t border-[#0B2528]/15 flex items-center justify-between">
-                        <div>
-                          <span className="block text-[10px] uppercase tracking-widest text-[#2B2B28]/50">
-                            Mulai Dari
-                          </span>
-                          <span className="text-lg font-bold text-[#0B2528]">
-                            {formatRupiah(item.harga)}
-                          </span>
-                          <span className="text-xs text-[#2B2B28]/50">
-                            {" "}
-                            / peserta
-                          </span>
-                        </div>
-
-                        <Link
-                          href={`/destinations/${item.id}`}
-                          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0B2528] text-[#F5F3ED] text-xs font-semibold uppercase tracking-wider hover:bg-[#537C78] transition-all"
+                    return (
+                      <div
+                        key={item.id}
+                        className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center"
+                      >
+                        <div
+                          className={`lg:col-span-7 overflow-hidden ${
+                            barisGenap ? "lg:order-2" : "lg:order-1"
+                          }`}
                         >
-                          <span>Jelajahi</span>
-                          <ArrowUpRight className="w-4 h-4" />
-                        </Link>
+                          <div className="relative h-[340px] sm:h-[450px] w-full overflow-hidden group shadow-lg">
+                            {daftarFoto.map((fotoUrl, i) => (
+                              <img
+                                key={i}
+                                src={fotoUrl}
+                                alt={`${item.nama} ${i + 1}`}
+                                className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out ${
+                                  i === indexAktif
+                                    ? "opacity-100 scale-100 z-10"
+                                    : "opacity-0 scale-105 z-0 pointer-events-none"
+                                }`}
+                              />
+                            ))}
+
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/15 z-20 pointer-events-none" />
+
+                            <div className="absolute top-5 left-5 z-30 px-4 py-1.5 rounded-full bg-[#F5F3ED]/95 text-[#0B2528] text-[11px] font-semibold uppercase tracking-widest shadow-sm">
+                              {item.kategori}
+                            </div>
+
+                            {daftarFoto.length > 1 && (
+                              <>
+                                <div className="absolute bottom-5 left-5 z-30 flex items-center gap-2">
+                                  {daftarFoto.map((_, dotIdx) => (
+                                    <button
+                                      key={dotIdx}
+                                      type="button"
+                                      onClick={() =>
+                                        pilihTitikFoto(item.id, dotIdx)
+                                      }
+                                      aria-label={`Pilih foto ${dotIdx + 1}`}
+                                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                                        dotIdx === indexAktif
+                                          ? "w-7 bg-[#F5F3ED]"
+                                          : "w-2 bg-[#F5F3ED]/45 hover:bg-[#F5F3ED]/80"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+
+                                <div className="absolute bottom-4 right-5 z-30 flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      geserFotoDestinasi(
+                                        item.id,
+                                        "kiri",
+                                        daftarFoto.length
+                                      )
+                                    }
+                                    aria-label="Foto sebelumnya"
+                                    className="w-10 h-10 rounded-full bg-[#0B2528]/75 backdrop-blur-md border border-[#F5F3ED]/25 text-[#F5F3ED] flex items-center justify-center hover:bg-[#C6A878] hover:text-[#0B2528] hover:border-[#C6A878] transition-all duration-300"
+                                  >
+                                    <ChevronLeft className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      geserFotoDestinasi(
+                                        item.id,
+                                        "kanan",
+                                        daftarFoto.length
+                                      )
+                                    }
+                                    aria-label="Foto selanjutnya"
+                                    className="w-10 h-10 rounded-full bg-[#0B2528]/75 backdrop-blur-md border border-[#F5F3ED]/25 text-[#F5F3ED] flex items-center justify-center hover:bg-[#C6A878] hover:text-[#0B2528] hover:border-[#C6A878] transition-all duration-300"
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div
+                          className={`lg:col-span-5 space-y-6 ${
+                            barisGenap ? "lg:order-1" : "lg:order-2"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-[#537C78] font-semibold">
+                            <span>{String(index + 1).padStart(2, "0")}</span>
+                            <span>{item.lokasi}</span>
+                          </div>
+
+                          <h3 className="font-editorial text-2xl sm:text-4xl font-normal text-[#0B2528] leading-snug">
+                            {item.nama}
+                          </h3>
+
+                          <p className="text-sm text-[#2B2B28]/75 leading-relaxed">
+                            {item.deskripsi}
+                          </p>
+
+                          <div className="flex items-center gap-6 pt-2 text-xs text-[#0B2528]/75">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="w-4 h-4 text-[#537C78]" />
+                              {item.durasi}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <Users className="w-4 h-4 text-[#537C78]" />
+                              Sisa {item.kuota} Kursi
+                            </span>
+                          </div>
+
+                          <div className="pt-5 border-t border-[#0B2528]/15 flex items-center justify-between">
+                            <div>
+                              <span className="block text-[10px] uppercase tracking-widest text-[#2B2B28]/50">
+                                Mulai Dari
+                              </span>
+                              <span className="text-lg font-bold text-[#0B2528]">
+                                {formatRupiah(item.harga)}
+                              </span>
+                              <span className="text-xs text-[#2B2B28]/50">
+                                {" "}
+                                / peserta
+                              </span>
+                            </div>
+
+                            <Link
+                              href={`/destinations/${item.slug}`}
+                              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0B2528] text-[#F5F3ED] text-xs font-semibold uppercase tracking-wider hover:bg-[#537C78] transition-all"
+                            >
+                              <span>Jelajahi</span>
+                              <ArrowUpRight className="w-4 h-4" />
+                            </Link>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    );
+                  })}
+                </div>
+
+                {daftarDestinasi.length > 3 && (
+                  <div className="mt-20 text-center">
+                    <Link
+                      href="/destinations"
+                      className="inline-flex items-center gap-2.5 px-8 py-4 rounded-full bg-[#0B2528] text-[#F5F3ED] text-xs font-bold uppercase tracking-widest hover:bg-[#537C78] transition-all"
+                    >
+                      <span>
+                        Jelajahi Seluruh {daftarDestinasi.length} Koleksi Ekspedisi
+                      </span>
+                      <ArrowUpRight className="w-4 h-4" />
+                    </Link>
                   </div>
-                );
-              })}
-            </div>
+                )}
+              </>
+            )}
           </div>
         </section>
 
@@ -444,6 +491,16 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
+
+            <div className="mt-12 text-center">
+              <Link
+                href="/tentang"
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#C6A878] hover:text-[#F5F3ED] transition-colors"
+              >
+                <span>Kenali Kisah & Filosofi Kami</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </section>
 
@@ -465,18 +522,18 @@ export default function HomePage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-              <a
-                href="tel:+6281290008899"
+              <Link
+                href="/kontak"
                 className="px-6 py-3.5 rounded-full bg-[#C6A878] text-[#0B2528] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#F5F3ED] transition-all"
               >
-                <Phone className="w-4 h-4" />
-                Hubungi Concierge
-              </a>
+                <Mail className="w-4 h-4" />
+                Kirim Pesan Konsultasi
+              </Link>
               <Link
                 href="/booking"
                 className="px-6 py-3.5 rounded-full border border-[#C6A878] text-[#F5F3ED] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#C6A878] hover:text-[#0B2528] transition-all"
               >
-                <Mail className="w-4 h-4" />
+                <Ticket className="w-4 h-4" />
                 Cek Status Pesanan
               </Link>
             </div>
