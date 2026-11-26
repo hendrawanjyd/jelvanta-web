@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import gsap from "gsap";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Destination, formatRupiah, getDestinations } from "@/lib/api";
 import {
+  ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   Clock,
   Users,
@@ -19,31 +21,46 @@ import {
   Ticket,
 } from "lucide-react";
 
-const TUMPUKAN_FOTO_VISI = [
+const SOROTAN_DESTINASI = [
   {
-    id: "visi-1",
-    url: "https://images.unsplash.com/photo-1555400038-63f5ba517a47?auto=format&fit=crop&w=1000&q=85",
-    kategori: "Warisan Budaya & Alam",
-    lokasi: "Pura Ulun Danu, Bali",
+    id: "sorotan-1",
+    url: "https://plus.unsplash.com/premium_photo-1723921232154-574f9172f3f4?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    judulBaris1: "Warisan Budaya",
+    judulBaris2: "Penuh Warna",
+    lokasi: "Tradisi & Budaya Nusantara",
+    deskripsi:
+      "Abadikan setiap momen di tengah kekayaan tradisi, perayaan penuh warna, dan kisah budaya lokal yang dirancang khusus untuk perjalanan personal Anda.",
+    tautanLabel: "Jelajahi Pengalaman Budaya Terbaik",
+    tautanHref: "/destinations",
   },
   {
-    id: "visi-2",
-    url: "https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=1000&q=85",
-    kategori: "Peristirahatan Privat",
-    lokasi: "Pesisir Tropis Sumba",
+    id: "sorotan-2",
+    url: "https://images.unsplash.com/photo-1634671813653-c817a18c2398?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    judulBaris1: "Peristirahatan Privat",
+    judulBaris2: "Di Atas Lautan",
+    lokasi: "Vila Terapung Nusantara",
+    deskripsi:
+      "Bangun di atas perairan sebening kristal bersama vila kayu privat, hamparan pasir putih, dan ketenangan pulau tropis yang jauh dari hiruk pikuk keseharian.",
+    tautanLabel: "Jelajahi Peristirahatan Pulau Terbaik",
+    tautanHref: "/destinations",
   },
   {
-    id: "visi-3",
-    url: "https://images.unsplash.com/photo-1544551763-77ef2d0cfc6c?auto=format&fit=crop&w=1000&q=85",
-    kategori: "Eksplorasi Bawah Laut",
-    lokasi: "Taman Laut Banda Neira",
+    id: "sorotan-3",
+    url: "https://images.unsplash.com/photo-1560477936-d27e03b6cb55?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    judulBaris1: "Eksplorasi Bahari",
+    judulBaris2: "Taman Laut Jernih",
+    lokasi: "Perairan Tropis Nusantara",
+    deskripsi:
+      "Berlayar menuju gugusan terumbu karang alami dengan perahu privat, menyelam di perairan biru toska yang jernih, dan nikmati petualangan laut tak terlupakan.",
+    tautanLabel: "Jelajahi Ekspedisi Bahari Terbaik",
+    tautanHref: "/destinations",
   },
 ];
 
 export default function HomePage() {
   const heroBoxRef = useRef<HTMLDivElement>(null);
 
-  const [urutanFoto, setUrutanFoto] = useState([0, 1, 2]);
+  const [indexSorotan, setIndexSorotan] = useState(0);
   const [daftarDestinasi, setDaftarDestinasi] = useState<Destination[]>([]);
   const [sedangMemuat, setSedangMemuat] = useState(true);
   const [pesanError, setPesanError] = useState<string | null>(null);
@@ -95,8 +112,15 @@ export default function HomePage() {
     };
   }, []);
 
-  const tukarTumpukanFoto = () => {
-    setUrutanFoto((prev) => [prev[1], prev[2], prev[0]]);
+  const pindahSorotan = (targetIndex: number) => {
+    if (
+      targetIndex === indexSorotan ||
+      targetIndex < 0 ||
+      targetIndex >= SOROTAN_DESTINASI.length
+    ) {
+      return;
+    }
+    setIndexSorotan(targetIndex);
   };
 
   const geserFotoDestinasi = (
@@ -121,6 +145,8 @@ export default function HomePage() {
     }));
   };
 
+  const bisaMundur = indexSorotan > 0;
+  const bisaMaju = indexSorotan < SOROTAN_DESTINASI.length - 1;
   const destinasiUnggulan = daftarDestinasi.slice(0, 3);
 
   return (
@@ -138,92 +164,157 @@ export default function HomePage() {
           <source src="/videos/jelvantahero.mp4" type="video/mp4" />
         </video>
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0B2528]/70 via-[#0B2528]/10 to-[#0B2528]/30" />
 
         <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-12 pb-16 md:pb-20">
           <div ref={heroBoxRef} className="max-w-md">
-            <h1 className="font-editorial text-4xl sm:text-5xl md:text-[52px] font-normal leading-[1.12] tracking-tight text-white mb-4">
+            <h1 className="font-editorial text-4xl sm:text-5xl md:text-[52px] font-normal leading-[1.12] tracking-tight text-[#F5F3ED] mb-4">
               Seni Menjelajahi <br />
               <span className="italic font-normal">Nusantara</span>
             </h1>
-            <p className="font-jakarta text-xs sm:text-sm text-white/85 leading-relaxed max-w-xs font-light tracking-wide">
+            <p className="font-jakarta text-xs sm:text-sm text-[#F5F3ED]/85 leading-relaxed max-w-xs font-light tracking-wide">
               Pengalaman berlibur yang dirancang secara personal untuk setiap langkah perjalanan Anda.
             </p>
           </div>
         </div>
       </section>
 
-      <div className="relative z-10 bg-[#F5F3ED] shadow-[0_-25px_60px_rgba(0,0,0,0.35)]">
+      <div className="relative z-10 bg-[#EFECE4] shadow-[0_-25px_60px_rgba(11,37,40,0.35)]">
         <section
           id="destinasi"
-          className="bg-[#F5F3ED] text-[#2B2B28] py-20 md:py-28"
+          className="relative bg-[#EFECE4] text-[#2B2B28] py-16 md:py-24 overflow-hidden"
         >
-          <div className="max-w-7xl mx-auto px-6 md:px-16 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
-            <div className="lg:col-span-6">
-              <div className="max-w-[520px] space-y-5">
-                <p className="font-script text-2xl sm:text-[28px] text-[#537C78]">
-                  Tur privat yang dirancang khusus
-                </p>
+          <div className="max-w-7xl mx-auto px-6 md:px-12">
+            <div className="relative">
+              <div className="hidden lg:block absolute inset-y-0 left-0 w-[60%] bg-[#F8F6F1]" />
 
-                <h2 className="font-editorial text-2xl sm:text-3xl md:text-[34px] font-normal leading-[1.38] tracking-[-0.01em] text-[#2B2B28]">
-                  Kami merancang perjalanan privat yang personal menuju sudut paling istimewa di Nusantara, karena kemewahan sejati adalah waktu yang dihabiskan dengan penuh makna.
-                </h2>
-              </div>
-            </div>
+              <div className="relative z-10 flex flex-col lg:flex-row items-center gap-10 lg:gap-8 py-6 lg:py-14 lg:pl-12">
+                <div className="w-full lg:w-[39%] shrink-0 bg-[#F8F6F1] lg:bg-transparent p-7 sm:p-9 lg:p-0 lg:pr-6">
+                  <div className="grid">
+                    {SOROTAN_DESTINASI.map((item, idx) => {
+                      const aktif = idx === indexSorotan;
+                      return (
+                        <div
+                          key={item.id}
+                          aria-hidden={!aktif}
+                          className={`col-start-1 row-start-1 self-start transition-opacity ease-in-out ${
+                            aktif
+                              ? "opacity-100 duration-500 delay-200 z-10"
+                              : "opacity-0 duration-200 delay-0 z-0 pointer-events-none"
+                          }`}
+                        >
+                          <h2 className="font-jakarta text-[28px] sm:text-[32px] md:text-[34px] font-bold leading-[1.2] tracking-[-0.02em] text-[#0B2528]">
+                            {item.judulBaris1}
+                            <br />
+                            {item.judulBaris2}
+                          </h2>
 
-            <div className="lg:col-span-6">
-              <div
-                onClick={tukarTumpukanFoto}
-                className="relative h-[440px] sm:h-[520px] w-full max-w-[500px] lg:ml-4 cursor-pointer select-none"
-              >
-                {TUMPUKAN_FOTO_VISI.map((item, idx) => {
-                  const posisi = urutanFoto.indexOf(idx);
-                  const isFront = posisi === 1;
+                          <div className="w-10 h-[2.5px] bg-[#C6A878] mt-5 mb-6" />
 
-                  let kelasPosisi = "";
-                  if (posisi === 0) {
-                    kelasPosisi =
-                      "top-0 left-0 w-[64%] h-[86%] z-10 opacity-100 scale-100 shadow-md";
-                  } else if (posisi === 1) {
-                    kelasPosisi =
-                      "bottom-4 right-0 w-[68%] h-[78%] z-20 opacity-100 scale-100 shadow-2xl";
-                  } else {
-                    kelasPosisi =
-                      "top-6 left-6 w-[60%] h-[75%] z-0 opacity-0 scale-95 pointer-events-none";
-                  }
+                          <p className="font-jakarta text-sm sm:text-[15px] text-[#2B2B28]/80 leading-[1.7] max-w-[380px]">
+                            {item.deskripsi}
+                          </p>
 
-                  return (
+                          <div className="pt-8">
+                            <Link
+                              href={item.tautanHref}
+                              tabIndex={aktif ? 0 : -1}
+                              className="group inline-flex items-center gap-2.5 font-jakarta text-[11px] sm:text-xs font-bold uppercase tracking-[0.12em] text-[#0B2528] hover:text-[#537C78] transition-colors"
+                            >
+                              <span>{item.tautanLabel}</span>
+                              <ArrowRight className="w-4 h-4 text-[#C6A878] transition-transform duration-300 group-hover:translate-x-1" />
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div
+                  className="w-full lg:w-[61%] relative [--active-w:84vw] [--inactive-w:84vw] [--gap:14px] [--active-h:320px] [--inactive-h:320px] sm:[--active-w:400px] sm:[--inactive-w:180px] sm:[--gap:18px] sm:[--active-h:430px] sm:[--inactive-h:345px] lg:[--active-w:380px] lg:[--inactive-w:165px] lg:[--gap:18px] lg:[--active-h:430px] lg:[--inactive-h:345px] xl:[--active-w:460px] xl:[--inactive-w:195px] xl:[--gap:20px] xl:[--active-h:455px] xl:[--inactive-h:365px]"
+                  style={{ "--active-idx": indexSorotan } as CSSProperties}
+                >
+                  <div className="overflow-hidden w-full h-[var(--active-h)]">
                     <div
-                      key={item.id}
-                      className={`absolute overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${kelasPosisi}`}
+                      className="flex items-start transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+                      style={{
+                        gap: "var(--gap)",
+                        transform:
+                          "translateX(calc(var(--active-idx) * -1 * (var(--inactive-w) + var(--gap))))",
+                      }}
                     >
-                      <img
-                        src={item.url}
-                        alt={item.lokasi}
-                        className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                      />
-                      <div
-                        className={`absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent transition-opacity duration-500 ${
-                          isFront ? "opacity-100" : "opacity-25"
-                        }`}
-                      />
-                      <div
-                        className={`absolute bottom-5 left-5 right-5 text-[#F5F3ED] transition-all duration-500 ${
-                          isFront
-                            ? "opacity-100 translate-y-0"
-                            : "opacity-0 translate-y-3 pointer-events-none"
-                        }`}
-                      >
-                        <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-[#C6A878] mb-1">
-                          {item.kategori}
-                        </p>
-                        <p className="font-editorial text-xl sm:text-2xl">
-                          {item.lokasi}
-                        </p>
-                      </div>
+                      {SOROTAN_DESTINASI.map((item, idx) => {
+                        const aktif = idx === indexSorotan;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => pindahSorotan(idx)}
+                            aria-label={`Tampilkan ${item.lokasi}`}
+                            style={{
+                              width: aktif
+                                ? "var(--active-w)"
+                                : "var(--inactive-w)",
+                              height: aktif
+                                ? "var(--active-h)"
+                                : "var(--inactive-h)",
+                            }}
+                            className={`relative shrink-0 overflow-hidden bg-[#0B2528]/10 text-left transition-[width,height] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                              aktif
+                                ? "shadow-md cursor-default"
+                                : "shadow-xs cursor-pointer group"
+                            }`}
+                          >
+                            <img
+                              src={item.url}
+                              alt={item.lokasi}
+                              className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+                                aktif ? "scale-100" : "group-hover:scale-105"
+                              }`}
+                            />
+                            <div
+                              className={`absolute inset-0 transition-opacity duration-500 ${
+                                aktif
+                                  ? "bg-[#0B2528]/0 opacity-0"
+                                  : "bg-[#0B2528]/15 opacity-100 group-hover:opacity-0"
+                              }`}
+                            />
+                          </button>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+
+                  <div className="mt-5 sm:mt-0 sm:absolute sm:bottom-1 sm:left-[calc(var(--active-w)+var(--gap))] flex items-center gap-3 z-20">
+                    <button
+                      type="button"
+                      onClick={() => pindahSorotan(indexSorotan - 1)}
+                      disabled={!bisaMundur}
+                      aria-label="Sorotan sebelumnya"
+                      className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
+                        bisaMundur
+                          ? "bg-[#0B2528] text-[#F5F3ED] hover:bg-[#537C78] active:scale-95 cursor-pointer"
+                          : "bg-[#DFDCD3] text-[#2B2B28]/35 cursor-not-allowed"
+                      }`}
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => pindahSorotan(indexSorotan + 1)}
+                      disabled={!bisaMaju}
+                      aria-label="Sorotan selanjutnya"
+                      className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ${
+                        bisaMaju
+                          ? "bg-[#0B2528] text-[#F5F3ED] hover:bg-[#537C78] active:scale-95 cursor-pointer"
+                          : "bg-[#DFDCD3] text-[#2B2B28]/35 cursor-not-allowed"
+                      }`}
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -304,7 +395,7 @@ export default function HomePage() {
                               />
                             ))}
 
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/15 z-20 pointer-events-none" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#0B2528]/45 via-transparent to-[#0B2528]/15 z-20 pointer-events-none" />
 
                             <div className="absolute top-5 left-5 z-30 px-4 py-1.5 rounded-full bg-[#F5F3ED]/95 text-[#0B2528] text-[11px] font-semibold uppercase tracking-widest shadow-sm">
                               {item.kategori}
